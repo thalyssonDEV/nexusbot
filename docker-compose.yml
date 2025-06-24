@@ -1,0 +1,55 @@
+# --- INÍCIO DA DEFINIÇÃO DOS SERVIÇOS/CONTÊINERES ---
+services:
+
+  # 1. SERVIÇO DO NGINX REVERSE PROXY
+  nginx-proxy:
+    image: nginxproxy/nginx-proxy
+    container_name: nginx-proxy
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - certs:/etc/nginx/certs:ro
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/tmp/docker.sock:ro
+      # --- CORREÇÃO APLICADA ---
+      # Monta o nosso ficheiro de configuração personalizado dentro do Nginx,
+      # aplicando-o apenas ao nosso domínio.
+      - ./discord_verification.conf:/etc/nginx/vhost.d/nexusbot.zapto.org:ro
+    restart: always
+
+  # 2. SERVIÇO DO LET'S ENCRYPT
+  letsencrypt-companion:
+    image: nginxproxy/acme-companion
+    container_name: letsencrypt-companion
+    restart: always
+    volumes:
+      - certs:/etc/nginx/certs
+      - vhost:/etc/nginx/vhost.d
+      - html:/usr/share/nginx/html
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    environment:
+      - NGINX_PROXY_CONTAINER=nginx-proxy
+
+  # 3. O SEU SERVIÇO DE API
+  api:
+    build: .
+    container_name: nexusbot
+    restart: always
+    env_file:
+      - .env
+    expose:
+      - "8000"
+    environment:
+      - VIRTUAL_HOST=nexusbot.zapto.org
+      - VIRTUAL_PORT=8000
+      - LETSENCRYPT_HOST=nexusbot.zapto.org
+      - LETSENCRYPT_EMAIL=contato.thalyssondel@gmail.com
+
+# --- FIM DOS SERVIÇOS ---
+
+volumes:
+  certs:
+  vhost:
+  html:

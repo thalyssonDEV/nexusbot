@@ -1,0 +1,313 @@
+<!DOCTYPE html>
+<html lang="pt-BR" class="">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusBot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script>
+      tailwind.config = { darkMode: 'class' }
+    </script>
+    <script>
+      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+        document.documentElement.classList.add('dark')
+      } else {
+        document.documentElement.classList.remove('dark')
+      }
+    </script>
+    <style>
+        body { 
+            font-family: 'Inter', sans-serif;
+            /* Fundo Gradiente para preencher o espaço */
+            background-color: #f0f4f8;
+            background-image: 
+                radial-gradient(at 0% 0%, hsla(212,100%,70%,0.1) 0px, transparent 50%),
+                radial-gradient(at 95% 90%, hsla(284,100%,70%,0.1) 0px, transparent 50%);
+        }
+        .dark body {
+            background-color: #0d1117;
+             background-image: 
+                radial-gradient(at 5% 5%, hsla(240,100%,70%,0.15) 0px, transparent 50%),
+                radial-gradient(at 95% 95%, hsla(283,100%,50%,0.15) 0px, transparent 50%);
+        }
+
+        .chat-window::-webkit-scrollbar { width: 8px; }
+        .chat-window::-webkit-scrollbar-track { background: transparent; }
+        .chat-window::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        .dark .chat-window::-webkit-scrollbar-thumb { background: #334155; }
+        .chat-window::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        .dark .chat-window::-webkit-scrollbar-thumb:hover { background: #475569; }
+        
+        @keyframes bounce {
+            0%, 80%, 100% { transform: scale(0); }
+            40% { transform: scale(1.0); }
+        }
+        .dot-bounce span { animation: bounce 1.4s infinite ease-in-out both; }
+
+        @keyframes pulse-green {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
+            50% { box-shadow: 0 0 0 5px rgba(74, 222, 128, 0); }
+        }
+        .online-indicator {
+            animation: pulse-green 2s infinite;
+        }
+
+        @keyframes fade-in-up {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        .animate-fade-in-up {
+            animation: fade-in-up 0.4s ease-out forwards;
+        }
+    </style>
+</head>
+<body class="flex items-center justify-center h-screen transition-colors duration-300 p-2 sm:p-4">
+
+    <div class="w-full max-w-4xl h-full flex flex-col bg-white/60 dark:bg-slate-800/60 backdrop-blur-xl shadow-2xl rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-700">
+        <header class="bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-b border-slate-200 dark:border-slate-700 p-4 flex items-center gap-4 shrink-0 z-10">
+            <div class="relative">
+                <div class="w-12 h-12 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
+                    <img src="/images/chatbot-icon.png" alt="Logo do NexusBot" class="w-full h-full object-cover">
+                </div>
+                <!-- Indicador online animado -->
+                <span class="absolute bottom-0 right-0 block h-3.5 w-3.5 rounded-full bg-green-400 border-2 border-white dark:border-slate-800 online-indicator"></span>
+            </div>
+            <div>
+                <h1 class="text-xl font-bold text-slate-800 dark:text-white">NexusBot</h1>
+                <p class="text-sm text-slate-500 dark:text-slate-400">Online</p>
+            </div>
+            <div class="ml-auto flex items-center gap-1">
+                <div class="relative">
+                    <button id="lang-btn" title="Alterar idioma" class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full focus:outline-none transition-all duration-200 hover:scale-110">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+                    </button>
+                    <div id="lang-menu" class="hidden absolute right-0 mt-2 w-48 bg-white dark:bg-slate-700 rounded-md shadow-lg z-20 ring-1 ring-black/5 dark:ring-white/10">
+                        <a href="#" class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600" data-lang="Português (Brasil)">Português (Brasil)</a>
+                        <a href="#" class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600" data-lang="English">English</a>
+                        <a href="#" class="block px-4 py-2 text-sm text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-600" data-lang="Español">Español</a>
+                    </div>
+                </div>
+                <button id="theme-toggle" title="Alterar tema" class="p-2 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full focus:outline-none transition-all duration-200 hover:scale-110">
+                    <svg id="theme-icon-light" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"></path></svg>
+                    <svg id="theme-icon-dark" class="h-5 w-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"></path></svg>
+                </button>
+            </div>
+        </header>
+
+        <main id="chat-window" class="flex-1 p-6 overflow-y-auto chat-window space-y-6"></main>
+
+        <footer class="p-4 bg-white/80 dark:bg-slate-800/80 backdrop-blur-sm border-t border-slate-200 dark:border-slate-700 shrink-0">
+            <div id="image-preview-container" class="mb-2 hidden">
+                <div class="relative inline-block bg-slate-100 dark:bg-slate-700 p-1 rounded-lg">
+                    <img id="image-preview" src="" alt="Image preview" class="h-20 w-auto rounded">
+                    <button id="remove-image-btn" class="absolute -top-2 -right-2 bg-red-500 text-white rounded-full h-6 w-6 flex items-center justify-center text-xs font-bold transition-transform hover:scale-110">&times;</button>
+                </div>
+            </div>
+
+            <form id="chat-form" class="flex items-center gap-3">
+                <button type="button" id="attach-file-btn" class="p-3 text-slate-500 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 rounded-full transition-all duration-200 hover:scale-110 active:scale-100">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"></path></svg>
+                </button>
+                <input type="text" id="message-input" placeholder="Digite sua mensagem..." autocomplete="off" class="flex-1 px-4 py-3 border border-slate-300 dark:border-slate-600 bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-full focus:outline-none focus:ring-2 focus:ring-purple-500 dark:focus:ring-purple-400 transition-all">
+                <input type="file" id="file-input" class="hidden" accept="image/*">
+                <button type="submit" class="flex items-center justify-center bg-blue-600 text-white p-3 rounded-full hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:bg-slate-400 dark:disabled:bg-slate-600 transition-all duration-200 hover:scale-110 active:scale-100 h-12 w-12 shrink-0">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="transform -rotate-12"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            </form>
+        </footer>
+    </div>
+
+    <script>
+        const chatWindow = document.getElementById('chat-window');
+        const chatForm = document.getElementById('chat-form');
+        const messageInput = document.getElementById('message-input');
+        const sendButton = chatForm.querySelector('button[type="submit"]');
+        const attachFileBtn = document.getElementById('attach-file-btn');
+        const fileInput = document.getElementById('file-input');
+        const imagePreviewContainer = document.getElementById('image-preview-container');
+        const imagePreview = document.getElementById('image-preview');
+        const removeImageBtn = document.getElementById('remove-image-btn');
+        const themeToggleBtn = document.getElementById('theme-toggle');
+        const themeIconLight = document.getElementById('theme-icon-light');
+        const themeIconDark = document.getElementById('theme-icon-dark');
+        const langBtn = document.getElementById('lang-btn');
+        const langMenu = document.getElementById('lang-menu');
+
+        let currentSessionId = null;
+        let attachedImageBase64 = null;
+        let currentLanguage = 'Português (Brasil)';
+        const API_URL = '/chat';
+
+        chatForm.addEventListener('submit', async (event) => {
+            event.preventDefault(); 
+            const userMessage = messageInput.value.trim();
+            if (!userMessage && !attachedImageBase64) return;
+
+            const imageToSend = attachedImageBase64;
+            addMessage(userMessage, 'user', imageToSend);
+            resetImageAttachment();
+
+            messageInput.value = '';
+            messageInput.disabled = true;
+            sendButton.disabled = true;
+            attachFileBtn.disabled = true;
+
+            showTypingIndicator();
+
+            try {
+                const requestBody = {
+                    text: userMessage,
+                    image_base64: imageToSend,
+                    language: currentLanguage,
+                    session_id: currentSessionId
+                };
+
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(requestBody),
+                });
+
+                hideTypingIndicator();
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.detail || `Erro na API`);
+                }
+                const data = await response.json();
+                
+                currentSessionId = data.session_id;
+                addMessage(data.response, 'bot');
+
+            } catch (error) {
+                hideTypingIndicator();
+                console.error('Falha ao comunicar com o chatbot:', error);
+                addMessage(`Ops! Ocorreu um erro: ${error.message}`, 'bot');
+            } finally {
+                messageInput.disabled = false;
+                sendButton.disabled = false;
+                attachFileBtn.disabled = false;
+                messageInput.focus();
+            }
+        });
+
+        const updateThemeIcon = (isDarkMode) => {
+            themeIconLight.classList.toggle('hidden', isDarkMode);
+            themeIconDark.classList.toggle('hidden', !isDarkMode);
+        };
+        
+        const applyTheme = () => {
+            const isDarkMode = document.documentElement.classList.contains('dark');
+            updateThemeIcon(isDarkMode);
+        };
+
+        themeToggleBtn.addEventListener('click', () => {
+            document.documentElement.classList.toggle('dark');
+            if (document.documentElement.classList.contains('dark')) {
+                localStorage.theme = 'dark';
+            } else {
+                localStorage.theme = 'light';
+            }
+            applyTheme();
+        });
+
+        const showTypingIndicator = () => {
+            const typingIndicator = document.createElement('div');
+            typingIndicator.id = 'typing-indicator';
+            typingIndicator.className = 'flex items-start gap-3 animate-fade-in-up';
+            typingIndicator.innerHTML = `
+                <div class="p-3 rounded-xl max-w-md break-words bg-slate-200/80 dark:bg-slate-700/80 shadow-md">
+                    <div class="flex items-center gap-1.5 dot-bounce">
+                        <span class="h-2 w-2 bg-slate-400 dark:bg-slate-500 rounded-full" style="animation-delay: -0.32s;"></span>
+                        <span class="h-2 w-2 bg-slate-400 dark:bg-slate-500 rounded-full" style="animation-delay: -0.16s;"></span>
+                        <span class="h-2 w-2 bg-slate-400 dark:bg-slate-500 rounded-full"></span>
+                    </div>
+                </div>
+            `;
+            chatWindow.appendChild(typingIndicator);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        };
+
+        const hideTypingIndicator = () => {
+            const indicator = document.getElementById('typing-indicator');
+            if (indicator) indicator.remove();
+        };
+
+        const addMessage = (text, sender, imageSrc = null) => {
+            const messageWrapper = document.createElement('div');
+            messageWrapper.className = `flex items-start gap-3 animate-fade-in-up ${sender === 'user' ? 'justify-end' : ''}`;
+            
+            const messageBubble = document.createElement('div');
+            messageBubble.className = `p-3 rounded-xl max-w-md break-words shadow-md ${
+                sender === 'user' 
+                ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-br-none' 
+                : 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-bl-none'
+            }`;
+            
+            if (imageSrc) {
+                const imgElement = document.createElement('img');
+                imgElement.src = imageSrc;
+                imgElement.className = 'rounded-lg mb-2 max-w-xs';
+                messageBubble.appendChild(imgElement);
+            }
+            if (text) {
+                let htmlText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+                htmlText = htmlText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                htmlText = htmlText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                htmlText = htmlText.replace(/\n/g, '<br>');
+                const textElement = document.createElement('p');
+                textElement.innerHTML = htmlText;
+                messageBubble.appendChild(textElement);
+            }
+            messageWrapper.appendChild(messageBubble);
+            chatWindow.appendChild(messageWrapper);
+            chatWindow.scrollTop = chatWindow.scrollHeight;
+        };
+        
+        const resetImageAttachment = () => {
+            attachedImageBase64 = null;
+            imagePreviewContainer.classList.add('hidden');
+            fileInput.value = '';
+        };
+
+        attachFileBtn.addEventListener('click', () => fileInput.click());
+        removeImageBtn.addEventListener('click', resetImageAttachment);
+        
+        fileInput.addEventListener('change', (event) => {
+            const file = event.target.files[0];
+            if (file && file.type.startsWith('image/')) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    attachedImageBase64 = e.target.result;
+                    imagePreview.src = attachedImageBase64;
+                    imagePreviewContainer.classList.remove('hidden');
+                };
+                reader.readAsDataURL(file);
+            }
+        });
+
+        langBtn.addEventListener('click', (e) => {
+            e.stopPropagation();
+            langMenu.classList.toggle('hidden');
+        });
+        
+        window.addEventListener('click', (e) => {
+            if (!langBtn.contains(e.target)) langMenu.classList.add('hidden');
+        });
+        
+        langMenu.addEventListener('click', (e) => {
+            e.preventDefault();
+            if (e.target.tagName === 'A') {
+                currentLanguage = e.target.dataset.lang;
+                langMenu.classList.add('hidden');
+                addMessage(`Idioma alterado para ${currentLanguage}.`, 'bot');
+            }
+        });
+
+        applyTheme();
+    </script>
+</body>
+</html>
