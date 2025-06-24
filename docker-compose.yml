@@ -16,7 +16,6 @@ services:
       # --- CORREÇÃO APLICADA ---
       # Monta o nosso ficheiro de configuração personalizado dentro do Nginx,
       # aplicando-o apenas ao nosso domínio.
-      - ./discord_verification.conf:/etc/nginx/vhost.d/nexusbot.zapto.org:ro
     restart: always
 
   # 2. SERVIÇO DO LET'S ENCRYPT
