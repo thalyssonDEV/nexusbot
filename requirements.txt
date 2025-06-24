@@ -1,6 +1,12 @@
+# Frameworks e Servidores
 fastapi
-uvicorn
 gunicorn
+uvicorn
+
+# Bibliotecas da Aplicação
 google-generativeai
 python-dotenv
 Pillow
+
+# pydantic é uma dependência do fastapi, mas é bom listá-lo
+pydantic
