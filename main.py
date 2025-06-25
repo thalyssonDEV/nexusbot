@@ -4,11 +4,11 @@ import io
 import base64
 import logging
 import uuid
-import pickle  # Importado para serializar/desserializar objetos Python
+import pickle
 from typing import Optional
 from PIL import Image
 
-import redis  # Importado para interagir com o Redis
+import redis
 import google.generativeai as genai
 from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import FileResponse
@@ -25,20 +25,14 @@ load_dotenv()
 # --- Configuração do Cliente Redis ---
 redis_client = None
 try:
-    # A URL do Redis deve ser configurada na sua variável de ambiente
-    # Exemplo no docker-compose: REDIS_URL=redis://redis:6379
-    # Exemplo local: REDIS_URL=redis://localhost:6379
     redis_url = os.getenv("REDIS_URL")
     if not redis_url:
         raise ValueError("A variável de ambiente REDIS_URL não foi encontrada.")
-    
-    # decode_responses=False é crucial porque o pickle trabalha com bytes, não com strings.
     redis_client = redis.from_url(redis_url, decode_responses=False)
-    redis_client.ping() # Verifica se a conexão com o Redis foi bem-sucedida
+    redis_client.ping()
     logging.info("Conexão com o Redis estabelecida com sucesso.")
 except Exception as e:
     logging.critical(f"Falha crítica ao conectar com o Redis: {e}")
-    # O app continuará, mas o endpoint de chat retornará erro.
 
 # --- Configuração da API do Gemini ---
 model = None
@@ -46,7 +40,6 @@ try:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         raise ValueError("A variável de ambiente GEMINI_API_KEY não foi encontrada.")
-    
     genai.configure(api_key=api_key)
     model = genai.GenerativeModel(model_name="gemini-1.5-flash-latest")
     logging.info("Modelo Gemini inicializado e pronto para uso.")
@@ -56,15 +49,12 @@ except Exception as e:
 # --- Configuração do FastAPI ---
 app = FastAPI()
 
-# Modelo de dados para a requisição
 class ChatRequest(BaseModel):
     text: Optional[str] = ""
     image_base64: Optional[str] = None
     language: Optional[str] = "Português (Brasil)"
     session_id: Optional[str] = None
 
-# Servindo a pasta de imagens estáticas e o frontend
-# Certifique-se que estas pastas existem na raiz do seu projeto.
 app.mount("/images", StaticFiles(directory="images"), name="images")
 
 @app.get("/")
@@ -86,40 +76,37 @@ async def chat(request: ChatRequest):
         raise HTTPException(status_code=400, detail="É necessário enviar texto ou imagem.")
 
     try:
-        # --- Gerenciamento da Sessão de Chat com Redis ---
         session_id = request.session_id
-        convo = None
+        history = [] # <--- ALTERAÇÃO: Começamos com um histórico vazio
         SESSION_EXPIRATION_SECONDS = 1800 # 30 minutos
 
         if session_id:
-            # Tenta recuperar a conversa do Redis
-            serialized_convo = redis_client.get(session_id)
-            if serialized_convo:
+            # <--- ALTERAÇÃO: Tenta recuperar o histórico, não o objeto de chat.
+            serialized_history = redis_client.get(session_id)
+            if serialized_history:
                 logging.info(f"Continuando sessão de chat existente: {session_id}")
-                convo = pickle.loads(serialized_convo)
-                # Atualiza o tempo de expiração da chave a cada nova mensagem
+                history = pickle.loads(serialized_history)
                 redis_client.expire(session_id, SESSION_EXPIRATION_SECONDS)
         
-        if convo is None:
-            # Se não há sessão ou a sessão expirou, cria uma nova
+        if not session_id or not history:
+            # Se não há sessão ou o histórico está vazio, inicia uma nova sessão.
             session_id = str(uuid.uuid4())
+            history = []
             logging.info(f"Iniciando nova sessão de chat: {session_id}")
-            convo = model.start_chat(history=[])
-            # A nova conversa será salva no Redis após o primeiro envio de mensagem
 
-        # --- Processamento da Mensagem ---
+        # <--- ALTERAÇÃO: Cria um novo objeto de chat em cada requisição, usando o histórico recuperado.
+        convo = model.start_chat(history=history)
+
         logging.info(f"Recebida requisição para a sessão {session_id}. Imagem anexada: {'Sim' if request.image_base64 else 'Não'}")
         
         response_text = ""
         response_from_api = None
 
-        # Lógica para tratar imagens continua stateless para não poluir o histórico de texto
         if request.image_base64:
             prompt_parts = []
             try:
-                # Importante: O frontend deve enviar a imagem em base64 puro, sem o prefixo.
                 image_data = base64.b64decode(request.image_base64)
-                img = Image.open(io.BytesIO(image_data)) # <--- Esta linha agora funciona
+                img = Image.open(io.BytesIO(image_data))
                 prompt_parts.append(img)
             except Exception as e:
                 logging.error(f"Erro ao processar imagem em base64: {e}")
@@ -131,18 +118,17 @@ async def chat(request: ChatRequest):
             response_from_api = model.generate_content(prompt_parts)
             response_text = response_from_api.text
         
-        # Lógica para texto usa a conversa com histórico (stateful)
         elif request.text:
             prompt_with_lang = f"Responda em {request.language}. {request.text}"
             logging.info(f"Enviando prompt de texto (stateful) para a sessão {session_id}.")
             response_from_api = convo.send_message(prompt_with_lang)
             response_text = response_from_api.text
 
-            # --- Salva o estado atualizado da conversa de volta no Redis ---
-            # O objeto 'convo' foi modificado por send_message, então precisa ser salvo.
-            serialized_convo_updated = pickle.dumps(convo)
-            redis_client.set(session_id, serialized_convo_updated, ex=SESSION_EXPIRATION_SECONDS)
-            logging.info(f"Sessão {session_id} salva/atualizada no Redis.")
+            # --- ALTERAÇÃO: Salva o histórico atualizado, não o objeto de chat.
+            updated_history = convo.history
+            serialized_history_updated = pickle.dumps(updated_history)
+            redis_client.set(session_id, serialized_history_updated, ex=SESSION_EXPIRATION_SECONDS)
+            logging.info(f"Histórico da sessão {session_id} salvo/atualizado no Redis.")
 
         if not response_text:
             feedback = getattr(response_from_api, 'prompt_feedback', 'N/A')
@@ -156,5 +142,9 @@ async def chat(request: ChatRequest):
         logging.critical(f"Erro de comunicação com o Redis: {e}", exc_info=True)
         raise HTTPException(status_code=503, detail="Não foi possível conectar ao serviço de sessão.")
     except Exception as e:
+        # Apanha o erro de pickle aqui também, por segurança.
+        if "pickle" in str(e).lower():
+             logging.critical(f"Erro de serialização (pickle): {e}", exc_info=True)
+             raise HTTPException(status_code=500, detail="Ocorreu um erro ao tentar salvar o estado da conversa.")
         logging.critical(f"Erro inesperado no endpoint /chat: {e}", exc_info=True)
         raise HTTPException(status_code=500, detail="Ocorreu um erro interno inesperado no servidor.")
