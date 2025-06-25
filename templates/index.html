@@ -9,19 +9,18 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script>
-      tailwind.config = { darkMode: 'class' }
+        tailwind.config = { darkMode: 'class' }
     </script>
     <script>
-      if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
-        document.documentElement.classList.add('dark')
-      } else {
-        document.documentElement.classList.remove('dark')
-      }
+        if (localStorage.theme === 'dark' || (!('theme' in localStorage) && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.classList.add('dark')
+        } else {
+            document.documentElement.classList.remove('dark')
+        }
     </script>
     <style>
         body { 
             font-family: 'Inter', sans-serif;
-            /* Fundo Gradiente para preencher o espaço */
             background-color: #f0f4f8;
             background-image: 
                 radial-gradient(at 0% 0%, hsla(212,100%,70%,0.1) 0px, transparent 50%),
@@ -29,24 +28,21 @@
         }
         .dark body {
             background-color: #0d1117;
-             background-image: 
+            background-image: 
                 radial-gradient(at 5% 5%, hsla(240,100%,70%,0.15) 0px, transparent 50%),
                 radial-gradient(at 95% 95%, hsla(283,100%,50%,0.15) 0px, transparent 50%);
         }
-
         .chat-window::-webkit-scrollbar { width: 8px; }
         .chat-window::-webkit-scrollbar-track { background: transparent; }
         .chat-window::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
         .dark .chat-window::-webkit-scrollbar-thumb { background: #334155; }
         .chat-window::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
         .dark .chat-window::-webkit-scrollbar-thumb:hover { background: #475569; }
-        
         @keyframes bounce {
             0%, 80%, 100% { transform: scale(0); }
             40% { transform: scale(1.0); }
         }
         .dot-bounce span { animation: bounce 1.4s infinite ease-in-out both; }
-
         @keyframes pulse-green {
             0%, 100% { box-shadow: 0 0 0 0 rgba(74, 222, 128, 0.7); }
             50% { box-shadow: 0 0 0 5px rgba(74, 222, 128, 0); }
@@ -54,7 +50,6 @@
         .online-indicator {
             animation: pulse-green 2s infinite;
         }
-
         @keyframes fade-in-up {
             from { opacity: 0; transform: translateY(10px); }
             to { opacity: 1; transform: translateY(0); }
@@ -72,7 +67,6 @@
                 <div class="w-12 h-12 bg-gradient-to-tr from-blue-500 to-purple-600 rounded-full flex items-center justify-center overflow-hidden">
                     <img src="/images/chatbot-icon.png" alt="Logo do NexusBot" class="w-full h-full object-cover">
                 </div>
-                <!-- Indicador online animado -->
                 <span class="absolute bottom-0 right-0 block h-3.5 w-3.5 rounded-full bg-green-400 border-2 border-white dark:border-slate-800 online-indicator"></span>
             </div>
             <div>
@@ -136,19 +130,21 @@
         const langBtn = document.getElementById('lang-btn');
         const langMenu = document.getElementById('lang-menu');
 
+        // Esta variável armazena a string base64 completa (com prefixo) para exibição
+        let attachedImageDataUrl = null; 
         let currentSessionId = null;
-        let attachedImageBase64 = null;
         let currentLanguage = 'Português (Brasil)';
         const API_URL = '/chat';
 
         chatForm.addEventListener('submit', async (event) => {
             event.preventDefault(); 
             const userMessage = messageInput.value.trim();
-            if (!userMessage && !attachedImageBase64) return;
+            if (!userMessage && !attachedImageDataUrl) return;
 
-            const imageToSend = attachedImageBase64;
-            addMessage(userMessage, 'user', imageToSend);
-            resetImageAttachment();
+            // Mostra a mensagem do usuário com a imagem (usando a Data URL completa)
+            addMessage(userMessage, 'user', attachedImageDataUrl);
+            const imageToSend = attachedImageDataUrl; // Guarda a Data URL para enviar
+            resetImageAttachment(); // Limpa a UI
 
             messageInput.value = '';
             messageInput.disabled = true;
@@ -158,9 +154,13 @@
             showTypingIndicator();
 
             try {
+                // --- ALTERAÇÃO CRÍTICA ---
+                // Remove o prefixo "data:image/...;base64," antes de enviar para a API.
+                const base64DataOnly = imageToSend ? imageToSend.split(',')[1] : null;
+
                 const requestBody = {
                     text: userMessage,
-                    image_base64: imageToSend,
+                    image_base64: base64DataOnly, // Envia apenas os dados base64
                     language: currentLanguage,
                     session_id: currentSessionId
                 };
@@ -175,17 +175,18 @@
 
                 if (!response.ok) {
                     const errorData = await response.json();
-                    throw new Error(errorData.detail || `Erro na API`);
+                    throw new Error(errorData.detail || `Erro ${response.status} na API`);
                 }
                 const data = await response.json();
                 
+                // Armazena o ID da sessão retornado para as próximas requisições
                 currentSessionId = data.session_id;
                 addMessage(data.response, 'bot');
 
             } catch (error) {
                 hideTypingIndicator();
                 console.error('Falha ao comunicar com o chatbot:', error);
-                addMessage(`Ops! Ocorreu um erro: ${error.message}`, 'bot');
+                addMessage(`Ops! Ocorreu um erro: ${error.message}. Verifique o console.`, 'system-error');
             } finally {
                 messageInput.disabled = false;
                 sendButton.disabled = false;
@@ -206,11 +207,7 @@
 
         themeToggleBtn.addEventListener('click', () => {
             document.documentElement.classList.toggle('dark');
-            if (document.documentElement.classList.contains('dark')) {
-                localStorage.theme = 'dark';
-            } else {
-                localStorage.theme = 'light';
-            }
+            localStorage.theme = document.documentElement.classList.contains('dark') ? 'dark' : 'light';
             applyTheme();
         });
 
@@ -238,14 +235,21 @@
 
         const addMessage = (text, sender, imageSrc = null) => {
             const messageWrapper = document.createElement('div');
-            messageWrapper.className = `flex items-start gap-3 animate-fade-in-up ${sender === 'user' ? 'justify-end' : ''}`;
-            
-            const messageBubble = document.createElement('div');
-            messageBubble.className = `p-3 rounded-xl max-w-md break-words shadow-md ${
-                sender === 'user' 
-                ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-br-none' 
-                : 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-bl-none'
-            }`;
+            let messageBubble;
+
+            if (sender === 'system' || sender === 'system-error') {
+                 messageWrapper.className = `flex justify-center animate-fade-in-up`;
+                 messageBubble = document.createElement('div');
+                 messageBubble.className = `px-3 py-1 text-xs rounded-full ${ sender === 'system-error' ? 'bg-red-100 text-red-700 dark:bg-red-900/50 dark:text-red-300' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`;
+            } else {
+                messageWrapper.className = `flex items-start gap-3 animate-fade-in-up ${sender === 'user' ? 'justify-end' : ''}`;
+                messageBubble = document.createElement('div');
+                messageBubble.className = `p-3 rounded-xl max-w-md break-words shadow-md ${
+                    sender === 'user' 
+                    ? 'bg-gradient-to-br from-blue-600 to-purple-600 text-white rounded-br-none' 
+                    : 'bg-white dark:bg-slate-700 text-slate-800 dark:text-slate-200 rounded-bl-none'
+                }`;
+            }
             
             if (imageSrc) {
                 const imgElement = document.createElement('img');
@@ -254,11 +258,13 @@
                 messageBubble.appendChild(imgElement);
             }
             if (text) {
+                // Converte markdown simples para HTML
                 let htmlText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
                 htmlText = htmlText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
                 htmlText = htmlText.replace(/\*(.*?)\*/g, '<em>$1</em>');
+                htmlText = htmlText.replace(/```([\s\S]*?)```/g, '<pre class="bg-slate-100 dark:bg-slate-800 p-2 rounded text-sm whitespace-pre-wrap"><code>$1</code></pre>');
                 htmlText = htmlText.replace(/\n/g, '<br>');
-                const textElement = document.createElement('p');
+                const textElement = document.createElement('div'); // Usar div para melhor renderização do innerHTML
                 textElement.innerHTML = htmlText;
                 messageBubble.appendChild(textElement);
             }
@@ -268,9 +274,9 @@
         };
         
         const resetImageAttachment = () => {
-            attachedImageBase64 = null;
+            attachedImageDataUrl = null;
             imagePreviewContainer.classList.add('hidden');
-            fileInput.value = '';
+            fileInput.value = ''; // Reseta o input de ficheiro
         };
 
         attachFileBtn.addEventListener('click', () => fileInput.click());
@@ -281,8 +287,8 @@
             if (file && file.type.startsWith('image/')) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
-                    attachedImageBase64 = e.target.result;
-                    imagePreview.src = attachedImageBase64;
+                    attachedImageDataUrl = e.target.result; // Armazena a string completa com prefixo
+                    imagePreview.src = attachedImageDataUrl;
                     imagePreviewContainer.classList.remove('hidden');
                 };
                 reader.readAsDataURL(file);
@@ -303,7 +309,7 @@
             if (e.target.tagName === 'A') {
                 currentLanguage = e.target.dataset.lang;
                 langMenu.classList.add('hidden');
-                addMessage(`Idioma alterado para ${currentLanguage}.`, 'bot');
+                addMessage(`Idioma alterado para ${currentLanguage}.`, 'system'); // --- MELHORIA ---
             }
         });
 

@@ -1,3 +1,6 @@
+# Define a versão do Docker Compose.
+version: "3.8"
+
 # --- INÍCIO DA DEFINIÇÃO DOS SERVIÇOS/CONTÊINERES ---
 services:
 
@@ -13,13 +16,10 @@ services:
       - vhost:/etc/nginx/vhost.d
       - html:/usr/share/nginx/html
       - /var/run/docker.sock:/tmp/docker.sock:ro
-      # --- CORREÇÃO APLICADA ---
-      # Monta o nosso ficheiro de configuração personalizado dentro do Nginx,
-      # aplicando-o apenas ao nosso domínio.
       - ./discord_verification.conf:/etc/nginx/vhost.d/nexusbot.zapto.org:ro
     restart: always
 
-  # 2. SERVIÇO DO LET'S ENCRYPT
+  # 2. SERVIÇO DO LET'S ENCRYPT (sem alterações)
   letsencrypt-companion:
     image: nginxproxy/acme-companion
     container_name: letsencrypt-companion
@@ -32,23 +32,41 @@ services:
     environment:
       - NGINX_PROXY_CONTAINER=nginx-proxy
 
-  # 3. O SEU SERVIÇO DE API
+  # 3. O SEU SERVIÇO DE API (com alterações)
   api:
     build: .
     container_name: nexusbot
     restart: always
     env_file:
-      - .env
+      - .env # Carrega a GEMINI_API_KEY a partir daqui
     expose:
       - "8000"
     environment:
+      # Configuração para o nginx-proxy e letsencrypt
       - VIRTUAL_HOST=nexusbot.zapto.org
       - VIRTUAL_PORT=8000
       - LETSENCRYPT_HOST=nexusbot.zapto.org
       - LETSENCRYPT_EMAIL=contato.thalyssondel@gmail.com
+      # --- ALTERAÇÃO 1: INFORMAR A API ONDE ESTÁ O REDIS ---
+      # O nome de host 'redis' é o nome do serviço Redis definido abaixo.
+      - REDIS_URL=redis://redis:6379
+    # --- ALTERAÇÃO 2: GARANTIR QUE O REDIS INICIE PRIMEIRO ---
+    depends_on:
+      - redis
+
+  # --- ALTERAÇÃO 3: ADICIONAR O SERVIÇO DO REDIS ---
+  redis:
+    image: "redis:7-alpine"
+    container_name: redis-cache
+    restart: always
+    expose:
+      # Expõe a porta do Redis apenas para a rede interna do Docker.
+      # A API consegue aceder, mas o mundo exterior não.
+      - "6379"
 
 # --- FIM DOS SERVIÇOS ---
 
+# Define os volumes que serão partilhados entre os contêineres.
 volumes:
   certs:
   vhost:
