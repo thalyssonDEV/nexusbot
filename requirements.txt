@@ -10,3 +10,5 @@ Pillow
 
 # pydantic é uma dependência do fastapi, mas é bom listá-lo
 pydantic
+
+redis
